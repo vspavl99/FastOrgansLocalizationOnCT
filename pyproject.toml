@@ -13,6 +13,7 @@ scikit-image = "^0.19.3"
 nibabel = "^4.0.1"
 napari = "^0.4.16"
 pytorch-lightning = "^1.6.4"
+segmentation-models-pytorch = "^0.2.1"
 
 [tool.poetry.dev-dependencies]
 
