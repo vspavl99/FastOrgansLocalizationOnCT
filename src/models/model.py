@@ -13,24 +13,24 @@ class ModelSegmentationCT(pl.LightningModule):
         return model_output
 
     def training_step(self, batch):
-
         data, target = batch
 
         data, target = data.squeeze(0), target.squeeze(0)
 
         prediction = self.model(data)
-        loss = self.loss_function(prediction, target)
+        loss = self.loss_function(prediction, target.float())
 
         self.log('train_loss', loss)
         return loss
 
     def validation_step(self, batch, batch_index):
-        # this is the validation loop
+
         data, target = batch
+        data, target = data.squeeze(0), target.squeeze(0)
 
         prediction = self.model(data)
 
-        vall_loss = self.loss_function(prediction, target)
+        vall_loss = self.loss_function(prediction, target.float())
         self.log("val_loss", vall_loss)
 
     def configure_optimizers(self):
