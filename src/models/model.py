@@ -13,7 +13,7 @@ class ModelSegmentationCT(pl.LightningModule):
         return model_output
 
     def training_step(self, batch):
-        data, target = batch['image']['data'].squeeze(2), batch['label']['data'].squeeze(2)
+        data, target = batch
 
         prediction = self.model(data)
         loss = self.loss_function(prediction, target.float())
@@ -22,12 +22,11 @@ class ModelSegmentationCT(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_index):
-        data, target = batch['image']['data'].squeeze(2), batch['label']['data'].squeeze(2)
+        data, target = batch
 
         prediction = self.model(data)
-
-        vall_loss = self.loss_function(prediction, target.float())
-        self.log("val_loss", vall_loss)
+        val_loss = self.loss_function(prediction, target.float())
+        self.log("val_loss", val_loss)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)

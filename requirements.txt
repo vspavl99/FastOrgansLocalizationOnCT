@@ -6,3 +6,4 @@ napari==0.4.16
 pytorch-lightning==1.6.4
 segmentation-models-pytorch==0.2.1
 albumentations==1.2.1
+torchio==0.18.83

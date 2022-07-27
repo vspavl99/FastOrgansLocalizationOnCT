@@ -63,13 +63,13 @@ class CTDataset(pl.LightningDataModule):
         self.config = config
 
         self.dataset = dataset
-        self.augmentations = Augmentations(config=config)
+        # self.augmentations = Augmentations(config=config)
 
         self.subjects = None
-        self.val_patches_queue = None
-        self.train_patches_queue = None
+        self.val_subjects_dataset = None
+        self.train_subjects_dataset = None
 
-        self.shape = 256
+        self.shape = config.shape
         self.number_of_classes = dataset.number_of_classes
 
     def prepare_data(self):
@@ -87,7 +87,6 @@ class CTDataset(pl.LightningDataModule):
         preprocess = tio.Compose([
             tio.RescaleIntensity((-1, 1)),
             tio.CropOrPad(self.shape),
-            tio.EnsureShapeMultiple(8),  # for the U-Net
             tio.OneHot(num_classes=self.number_of_classes + 1),
         ])
         return preprocess
@@ -95,18 +94,17 @@ class CTDataset(pl.LightningDataModule):
     @staticmethod
     def get_augmentation_transform():
         augment = tio.Compose([
-            tio.RandomAffine(),
-            tio.RandomGamma(p=0.5),
-            tio.RandomNoise(p=0.5),
-            tio.RandomMotion(p=0.1),
-            tio.RandomBiasField(p=0.25),
+            # tio.RandomAffine(),
+            # tio.RandomGamma(p=0.5),
+            tio.RandomNoise(p=0.5)
+            # tio.RandomMotion(p=0.1),
+            # tio.RandomBiasField(p=0.25),
         ])
         return augment
 
-    def setup(self, stage=None):
-        self.prepare_data()
-
+    def _split_train_val_data(self):
         num_subjects = len(self.subjects)
+
         num_train_subjects = int(round(num_subjects * self.config.train_set_size))
         num_val_subjects = num_subjects - num_train_subjects
 
@@ -115,33 +113,35 @@ class CTDataset(pl.LightningDataModule):
             lengths=[num_train_subjects, num_val_subjects],
             generator=torch.Generator().manual_seed(self.config.random_seed)
         )
+        return train_subjects, val_subjects
+
+    def setup(self, stage=None):
+        self.prepare_data()
+
+        train_subjects, val_subjects = self._split_train_val_data()
 
         preprocess = self._preprocess_data()
         augment = self.get_augmentation_transform()
         transform = tio.Compose([preprocess, augment])
 
-        sampler = tio.data.UniformSampler((1, 256, 256))
-
-        train_subjects_dataset = tio.SubjectsDataset(train_subjects, transform=transform)
-        self.train_patches_queue = tio.Queue(
-            subjects_dataset=train_subjects_dataset,
-            max_length=1,
-            samples_per_volume=1,
-            sampler=sampler,
-            num_workers=4,
-        )
-
-        val_subjects_dataset = tio.SubjectsDataset(val_subjects, transform=preprocess)
-        self.val_patches_queue = tio.Queue(
-            subjects_dataset=val_subjects_dataset,
-            max_length=4,
-            samples_per_volume=2,
-            sampler=sampler,
-            num_workers=2,
-        )
+        self.train_subjects_dataset = tio.SubjectsDataset(train_subjects, transform=transform)
+        self.val_subjects_dataset = tio.SubjectsDataset(val_subjects, transform=preprocess)
 
     def train_dataloader(self):
-        return DataLoader(self.train_patches_queue, self.config.batch_size)
+        return DataLoader(dataset=self.train_subjects_dataset,
+                          batch_size=self.config.batch_size,
+                          num_workers=self.config.num_workers,
+                          collate_fn=self._collate_fn)
 
     def val_dataloader(self):
-        return DataLoader(self.val_patches_queue, self.config.batch_size)
+        return DataLoader(dataset=self.val_subjects_dataset,
+                          batch_size=self.config.batch_size,
+                          num_workers=self.config.num_workers,
+                          collate_fn=self._collate_fn)
+
+    @staticmethod
+    def _collate_fn(data):
+        batch_image = torch.cat([image['image']['data'] for image in data], dim=3).permute(3, 0, 1, 2)
+        batch_target = torch.cat([target['label']['data'] for target in data], dim=3).permute(3, 0, 1, 2)
+
+        return batch_image, batch_target
