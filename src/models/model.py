@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 
 
 class ModelSegmentationCT(pl.LightningModule):
-    def __init__(self, base_model, loss_function):
+    def __init__(self, base_model, loss_function=None):
         super().__init__()
         self.model = base_model
         self.loss_function = loss_function
@@ -13,9 +13,7 @@ class ModelSegmentationCT(pl.LightningModule):
         return model_output
 
     def training_step(self, batch):
-        data, target = batch
-
-        data, target = data.squeeze(0), target.squeeze(0)
+        data, target = batch['image']['data'].squeeze(2), batch['label']['data'].squeeze(2)
 
         prediction = self.model(data)
         loss = self.loss_function(prediction, target.float())
@@ -24,9 +22,7 @@ class ModelSegmentationCT(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_index):
-
-        data, target = batch
-        data, target = data.squeeze(0), target.squeeze(0)
+        data, target = batch['image']['data'].squeeze(2), batch['label']['data'].squeeze(2)
 
         prediction = self.model(data)
 

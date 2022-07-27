@@ -3,9 +3,10 @@ from typing import List, Tuple, Union
 import torch
 import numpy as np
 import nibabel as nib
+import torchio as tio
 from pathlib import Path
-from torch.nn.functional import one_hot
-from torch.utils.data import Dataset, DataLoader, random_split
+import pytorch_lightning as pl
+from torch.utils.data import DataLoader, random_split
 
 from src.config import TrainConfig
 from src.data.augmentation import Augmentations
@@ -14,33 +15,33 @@ from src.data.augmentation import Augmentations
 class AMOS22:
     number_of_classes = 15
 
-    def __init__(self, path_to_data: str = 'data/raw/AMOS22/imagesTr'):
-        self.path_to_data = path_to_data
-
-    def get_list_of_data(self) -> List:
-        return [str(file_name) for file_name in Path(self.path_to_data).iterdir()]
+    def __init__(self, path_to_data: str = 'data/raw/AMOS22/'):
+        self.path_to_data = Path(path_to_data)
 
     @staticmethod
-    def _get_label_path(path_to_item: str) -> str:
-        return path_to_item.replace('imagesTr', 'labelsTr')
+    def _filter_files(filename):
+        return not str(filename.name).startswith('.')
 
-    def read_data_item(self, file_name: str) -> Tuple[np.ndarray, np.ndarray]:
-        image = nib.load(file_name).get_fdata()
+    def _get_list_of_data(self, folder: Path) -> list:
+        path_to_files = self.path_to_data / folder
+        return list(filter(self._filter_files, path_to_files.iterdir()))
 
-        label_name = self._get_label_path(file_name)
-        label = nib.load(label_name).get_fdata()
+    def get_images(self) -> list:
+        return self._get_list_of_data(Path('imagesTr'))
 
-        return image, label
+    def get_labels(self) -> list:
+        return self._get_list_of_data(Path('labelsTr'))
 
 
 class CTORG:
     number_of_classes = 5
 
     def __init__(self, path_to_data: str = 'data/raw/CT-ORG'):
-        self.path_to_data = path_to_data
+        self.path_to_data = Path(path_to_data)
 
     def get_list_of_data(self) -> List:
-        return [file_name for file_name in Path(self.path_to_data).iterdir() if 'volume' in str(file_name)]
+        return [file_name for file_name in Path(self.path_to_data).iterdir()
+                if 'volume' in str(file_name) and not str(file_name.name).startswith('.')]
 
     @staticmethod
     def _get_label_path(path_to_item: Path) -> str:
@@ -55,77 +56,92 @@ class CTORG:
         return image, label
 
 
-class CTDataset(Dataset):
-    def __init__(self, dataset: Union[CTORG, AMOS22], augmentations: Augmentations):
-        self.image_names = dataset.get_list_of_data()
-        self.parse_data = dataset.read_data_item
+class CTDataset(pl.LightningDataModule):
+    def __init__(self, dataset: Union[CTORG, AMOS22], config: TrainConfig):
+        super().__init__()
 
+        self.config = config
+
+        self.dataset = dataset
+        self.augmentations = Augmentations(config=config)
+
+        self.subjects = None
+        self.val_patches_queue = None
+        self.train_patches_queue = None
+
+        self.shape = 256
         self.number_of_classes = dataset.number_of_classes
-        self.augmentations = augmentations
 
-    def __len__(self):
-        return len(self.image_names)
+    def prepare_data(self):
+        image_training_paths, label_training_paths = self.dataset.get_images(), self.dataset.get_labels()
 
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        image_name = self.image_names[index]
-        image, target = self.parse_data(image_name)
+        self.subjects = []
+        for image_path, label_path in zip(image_training_paths, label_training_paths):
+            subject = tio.Subject(
+                image=tio.ScalarImage(image_path),
+                label=tio.LabelMap(label_path)
+            )
+            self.subjects.append(subject)
 
-        image_preprocessed, target_preprocessed = self._preprocess_data(image=image, target=target)
-        return image_preprocessed, target_preprocessed
+    def _preprocess_data(self):
+        preprocess = tio.Compose([
+            tio.RescaleIntensity((-1, 1)),
+            tio.CropOrPad(self.shape),
+            tio.EnsureShapeMultiple(8),  # for the U-Net
+            tio.OneHot(num_classes=self.number_of_classes + 1),
+        ])
+        return preprocess
 
-    def _prepare_mask(self, target):
-        one_hot_encoded_target = one_hot(target, num_classes=self.number_of_classes + 1)
+    @staticmethod
+    def get_augmentation_transform():
+        augment = tio.Compose([
+            tio.RandomAffine(),
+            tio.RandomGamma(p=0.5),
+            tio.RandomNoise(p=0.5),
+            tio.RandomMotion(p=0.1),
+            tio.RandomBiasField(p=0.25),
+        ])
+        return augment
 
-        # Crop background class
-        one_hot_encoded_target = one_hot_encoded_target[:, :, :, 1:]
-        one_hot_encoded_target = one_hot_encoded_target.permute(2, 3, 0, 1)
+    def setup(self, stage=None):
+        self.prepare_data()
 
-        return one_hot_encoded_target
+        num_subjects = len(self.subjects)
+        num_train_subjects = int(round(num_subjects * self.config.train_set_size))
+        num_val_subjects = num_subjects - num_train_subjects
 
-    def _preprocess_data(self, image: np.ndarray, target: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor]:
+        train_subjects, val_subjects = random_split(
+            dataset=self.subjects,
+            lengths=[num_train_subjects, num_val_subjects],
+            generator=torch.Generator().manual_seed(self.config.random_seed)
+        )
 
-        image, target = image.transpose((0, 2, 1)).astype(np.float32), target.transpose((0, 2, 1)).astype(np.float32)
-        transformed = self.augmentations(image=image, mask=target)
+        preprocess = self._preprocess_data()
+        augment = self.get_augmentation_transform()
+        transform = tio.Compose([preprocess, augment])
 
-        transformed_image = transformed['image']
-        transformed_masks = transformed['mask']
+        sampler = tio.data.UniformSampler((1, 256, 256))
 
-        transformed_image, transformed_masks = transformed_image.unsqueeze(1), transformed_masks.long()
+        train_subjects_dataset = tio.SubjectsDataset(train_subjects, transform=transform)
+        self.train_patches_queue = tio.Queue(
+            subjects_dataset=train_subjects_dataset,
+            max_length=1,
+            samples_per_volume=1,
+            sampler=sampler,
+            num_workers=4,
+        )
 
-        one_hot_encoded_target = self._prepare_mask(transformed_masks)
+        val_subjects_dataset = tio.SubjectsDataset(val_subjects, transform=preprocess)
+        self.val_patches_queue = tio.Queue(
+            subjects_dataset=val_subjects_dataset,
+            max_length=4,
+            samples_per_volume=2,
+            sampler=sampler,
+            num_workers=2,
+        )
 
-        return transformed_image[:10], one_hot_encoded_target[:10]
+    def train_dataloader(self):
+        return DataLoader(self.train_patches_queue, self.config.batch_size)
 
-
-_dataset_dict = {
-    'CTORG': CTORG,
-    'AMOS22': AMOS22
-}
-
-
-def get_train_val_datasets(config: TrainConfig, path_to_data: str) -> Tuple[DataLoader, DataLoader]:
-    """
-    Create dataset, split into train and val
-    :param path_to_data: path where data located
-    :param config: some parameters
-    :return: train and validation dataloaders
-    """
-    dataset_parser = _dataset_dict.get(config.dataset)(path_to_data=path_to_data)
-
-    augmentations = Augmentations(config=config)
-
-    dataset = CTDataset(dataset=dataset_parser, augmentations=augmentations)
-
-    train_set_size = int(len(dataset) * config.train_set_size)
-    valid_set_size = len(dataset) - train_set_size
-
-    train_dataset, val_dataset = random_split(
-        dataset=dataset,
-        lengths=[train_set_size, valid_set_size],
-        generator=torch.Generator().manual_seed(config.random_seed)
-    )
-
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=config.batch_size, num_workers=config.num_workers)
-    val_dataloader = DataLoader(dataset=val_dataset, batch_size=config.batch_size, num_workers=config.num_workers)
-
-    return train_dataloader, val_dataloader
+    def val_dataloader(self):
+        return DataLoader(self.val_patches_queue, self.config.batch_size)
