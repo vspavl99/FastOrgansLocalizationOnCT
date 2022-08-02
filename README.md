@@ -1,5 +1,8 @@
-FastOrgansLocalizationOnCT
+Fast organs localization on CT
 ==============================
+|                             Predictions                             |                           Targets                           |
+|:-------------------------------------------------------------------:|:-----------------------------------------------------------:|
+| ![reports/figures/predictions.png](reports/figures/predictions.png) | ![reports/figures/targets.png](reports/figures/targets.png) |
 
 Project Organization
 ------------
@@ -15,7 +18,7 @@ Project Organization
     ├── requirements.txt 
     └──  src                <- Source code for use in this project.
        │
-       ├── data           <- Scripts to download or generate data
+       ├── data           <- Scripts generate dataset
        │   └── make_dataset.py
        ├── models         <- Scripts to train models and then use trained models to make predictions
        │   ├── predict_model.py
