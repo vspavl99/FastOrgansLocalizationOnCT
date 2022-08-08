@@ -1,5 +1,13 @@
 Fast organs localization on CT
 ==============================
+
+
+| iou_score  | f1_score  | f2_score | accuracy | recall |
+|:----------:|-----------|----------|----------|--------|
+|    0.82    | 0.90      | 0.90     | 0.98     | 0.90   |
+
+
+
 |                             Predictions                             |                           Targets                           |
 |:-------------------------------------------------------------------:|:-----------------------------------------------------------:|
 | ![reports/figures/predictions.png](reports/figures/predictions.png) | ![reports/figures/targets.png](reports/figures/targets.png) |

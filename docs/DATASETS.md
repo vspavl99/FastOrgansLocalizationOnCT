@@ -1,24 +1,5 @@
-## [Dataset description](https://www.nature.com/articles/s41597-020-00715-8)
+# AMOS22 
 
-
-DATA FORMAT
-
-All files are stored in Nifti-1 format with 32-bit floating point data. 
-
-Images are stored as 'volume-XX.nii.gz' where XX is the case number. All images are CT scans, under a wide variety of imaging conditions including high-dose and low-dose, with and without contrast, abdominal, neck-to-pelvis and whole-body. Many patients exhibit cancer lesions, especially in the liver, but they were not selected according to any specific disease criteria. Numeric values are in Hounsfield units.
-
-Segmentations are stored as 'labels-XX.nii.gz', where XX is the same number as the corresponding volume file. Organs are encoded as follows:
-
-* 0: Background (None of the following organs)
-* 1: Liver
-* 2: Bladder
-* 3: Lungs
-* 4: Kidneys
-* 5: Bone
-* 6: Brain
-
-## AMOS22 
-Data Info
 Two databases are used in the challenge: Abdominal CT and MRI. Each data set in these two databases corresponds 
 to a series of DICOM images belonging to a single patient. The data sets are collected retrospectively 
 from Longgang District Central Hospital (SZ, CHINA) and Longgang District People's Hospital (SZ, CHINA).
