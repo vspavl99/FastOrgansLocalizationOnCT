@@ -6,11 +6,12 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 
 from src.config import TrainConfig
-from src.data.base_datasets import AMOS22, CTORG
+from src.data.base_datasets import AMOS22Patches, CTORG, AMOS22Images2D
+from src.data.augmentation import Augmentations
 
 
 class CTDatasetPatches(pl.LightningDataModule):
-    def __init__(self, dataset: Union[CTORG, AMOS22], config: TrainConfig):
+    def __init__(self, dataset: Union[CTORG, AMOS22Patches], config: TrainConfig):
         super().__init__()
 
         self.config = config
@@ -22,7 +23,7 @@ class CTDatasetPatches(pl.LightningDataModule):
         self.val_subjects_dataset = None
         self.train_subjects_dataset = None
 
-        self.shape = config.shape
+        self.shape = config.patch_shape
         self.number_of_classes = dataset.number_of_classes
 
     def prepare_data(self):
@@ -98,3 +99,56 @@ class CTDatasetPatches(pl.LightningDataModule):
         batch_target = torch.cat([target['label']['data'] for target in data], dim=3).permute(3, 0, 1, 2)
 
         return batch_image, batch_target
+
+
+class CTDataset2D(pl.LightningDataModule):
+    def __init__(self, config: TrainConfig, path_to_data: str = 'data/vpavlishen/processed/AMOS22'):
+        super().__init__()
+
+        self.config = config
+        self.path_to_data = path_to_data
+
+        self.augmentations = Augmentations(config=config)
+
+        self.train_dataset = None
+        self.val_dataset = None
+        self.test_dataset = None
+
+        self.shape = config.image_shape
+
+    def setup(self, stage: str = None):
+
+        if stage == 'fit' or stage is None:
+            self.train_dataset = AMOS22Images2D(path_to_data=self.path_to_data, stage='train',
+                                                transforms=self.augmentations)
+            self.val_dataset = AMOS22Images2D(path_to_data=self.path_to_data, stage='val',
+                                              transforms=self.augmentations)
+
+        if stage == 'test' or stage is None:
+            self.test_dataset = AMOS22Images2D(path_to_data=self.path_to_data, stage='test',
+                                               transforms=self.augmentations)
+
+    def train_dataloader(self):
+        return DataLoader(dataset=self.train_dataset,
+                          batch_size=self.config.batch_size,
+                          num_workers=self.config.num_workers)
+
+    def val_dataloader(self):
+        return DataLoader(dataset=self.val_dataset,
+                          batch_size=self.config.batch_size,
+                          num_workers=self.config.num_workers)
+
+    def test_dataloader(self):
+        return DataLoader(dataset=self.test_dataset,
+                          batch_size=self.config.batch_size,
+                          num_workers=self.config.num_workers)
+
+
+if __name__ == '__main__':
+    # TODO: remove
+    dataset = CTDataset2D(TrainConfig())
+    dataset.setup()
+    val_dataloader = dataset.val_dataloader()
+
+    for image, target in val_dataloader:
+        print(image.shape, target.shape)

@@ -3,7 +3,7 @@ import segmentation_models_pytorch as smp
 
 from src.config import TrainConfig
 from src.data.dataset import CTDatasetPatches
-from src.data.base_datasets import AMOS22
+from src.data.base_datasets import AMOS22Patches
 from src.models.model import ModelSegmentationCT
 
 METRICS = {
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     train_config = TrainConfig(batch_size=2, num_workers=0)
 
-    dataset = AMOS22(path_to_data='/home/vpavlishen/data/vpavlishen/AMOS22')
+    dataset = AMOS22Patches(path_to_data='/home/vpavlishen/data/vpavlishen/AMOS22')
     data = CTDatasetPatches(dataset=dataset, config=train_config)
     data.setup()
 

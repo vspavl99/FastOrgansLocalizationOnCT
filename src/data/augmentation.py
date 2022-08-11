@@ -9,7 +9,7 @@ class Augmentations:
         super().__init__()
         self.config = config
 
-        self.height, self.width = self.config.input_size
+        self.height, self.width = self.config.image_shape
 
         self.list_augmentations = self._get_augmentations()
 
