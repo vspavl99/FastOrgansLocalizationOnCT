@@ -1,62 +1,15 @@
-from typing import List, Tuple, Union
+from typing import Union
 
 import torch
-import numpy as np
-import nibabel as nib
 import torchio as tio
-from pathlib import Path
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 
 from src.config import TrainConfig
-from src.data.augmentation import Augmentations
+from src.data.base_datasets import AMOS22, CTORG
 
 
-class AMOS22:
-    number_of_classes = 15
-
-    def __init__(self, path_to_data: str = 'data/raw/AMOS22/'):
-        self.path_to_data = Path(path_to_data)
-
-    @staticmethod
-    def _filter_files(filename):
-        return not str(filename.name).startswith('.')
-
-    def _get_list_of_data(self, folder: Path) -> list:
-        path_to_files = self.path_to_data / folder
-        return list(filter(self._filter_files, path_to_files.iterdir()))
-
-    def get_images(self) -> list:
-        return self._get_list_of_data(Path('imagesTr'))
-
-    def get_labels(self) -> list:
-        return self._get_list_of_data(Path('labelsTr'))
-
-
-class CTORG:
-    number_of_classes = 5
-
-    def __init__(self, path_to_data: str = 'data/raw/CT-ORG'):
-        self.path_to_data = Path(path_to_data)
-
-    def get_list_of_data(self) -> List:
-        return [file_name for file_name in Path(self.path_to_data).iterdir()
-                if 'volume' in str(file_name) and not str(file_name.name).startswith('.')]
-
-    @staticmethod
-    def _get_label_path(path_to_item: Path) -> str:
-        return str(path_to_item).replace('volume', 'labels')
-
-    def read_data_item(self, file_name: Path) -> Tuple[np.ndarray, np.ndarray]:
-        image = nib.load(file_name).get_fdata()
-
-        label_name = self._get_label_path(file_name)
-        label = nib.load(label_name).get_fdata()
-
-        return image, label
-
-
-class CTDataset(pl.LightningDataModule):
+class CTDatasetPatches(pl.LightningDataModule):
     def __init__(self, dataset: Union[CTORG, AMOS22], config: TrainConfig):
         super().__init__()
 

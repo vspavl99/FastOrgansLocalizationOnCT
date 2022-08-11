@@ -55,4 +55,4 @@ def split_dataset(root_dir: str, output_dir: str) -> NoReturn:
 
 
 if __name__ == '__main__':
-    split_dataset('data/vpavlishen/AMOS22/', 'data/vpavlishen/processed/AMOS22_splitted')
+    split_dataset('data/vpavlishen/AMOS22/', 'data/vpavlishen/processed/AMOS22')
