@@ -23,7 +23,7 @@ def slice_saving(volume: np.ndarray, segmentation: np.ndarray, file_name: str,
     num_samples = volume.shape[2]
 
     for slice_num in range(num_samples):
-        volume_slice = volume[:, :, slice_num].numpy().astype(np.float16)
+        volume_slice = volume[:, :, slice_num].numpy()
         segmentation_slice = segmentation[:, :, slice_num].numpy().astype(np.uint8)
 
         slice_name = str(Path(file_name).name).replace('.nii.gz', f'_{slice_num}')
