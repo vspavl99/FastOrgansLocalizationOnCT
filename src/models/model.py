@@ -1,5 +1,8 @@
 import torch
 import pytorch_lightning as pl
+import segmentation_models_pytorch as smp
+
+from src.models.metrics import METRICS
 
 
 class ModelSegmentationCT(pl.LightningModule):
@@ -7,6 +10,8 @@ class ModelSegmentationCT(pl.LightningModule):
         super().__init__()
         self.model = base_model
         self.loss_function = loss_function
+
+        self.metrics = METRICS
 
     def forward(self, data):
         model_output = self.model(data)
@@ -16,7 +21,7 @@ class ModelSegmentationCT(pl.LightningModule):
         data, target = batch
 
         prediction = self.model(data)
-        loss = self.loss_function(prediction, target.float())
+        loss = self.loss_function(prediction, target)
 
         self.log('train_loss', loss)
         return loss
@@ -28,6 +33,25 @@ class ModelSegmentationCT(pl.LightningModule):
         val_loss = self.loss_function(prediction, target.float())
         self.log("val_loss", val_loss)
 
+    def test_step(self, batch, batch_index):
+        self._compute_metrics(batch, batch_index)
+
+    def _compute_metrics(self, batch, batch_index):
+        data, target = batch
+        prediction = self.model(data)
+
+        _metrics_to_log = {}
+
+        tp, fp, fn, tn = smp.metrics.get_stats(prediction, target, mode='multilabel', threshold=0.5)
+
+        for metric in self.metrics:
+            function, reduction = self.metrics[metric]['func'], self.metrics[metric]['reduction']
+
+            _metrics_to_log[metric] = function(tp, fp, fn, tn, reduction=reduction)
+
+        self.log_dict(_metrics_to_log)
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
+
