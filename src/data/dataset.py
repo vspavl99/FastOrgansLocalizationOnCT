@@ -22,12 +22,12 @@ class CTDatasetPatches(pl.LightningDataModule):
         self.val_dataset = None
         self.test_dataset = None
 
-        self.shape = config.patch_shape
+        self._patch_shape = config.patch_shape
 
     def _preprocess_data(self):
         preprocess = tio.Compose([
             tio.RescaleIntensity((-1, 1)),
-            tio.CropOrPad(self.shape),
+            tio.CropOrPad(self._patch_shape),
             tio.OneHot(num_classes=self.data_parser.number_of_classes),
         ])
         return preprocess
@@ -121,13 +121,13 @@ class CTDataset2D(pl.LightningDataModule):
 
         if stage == 'fit' or stage is None:
             self.train_dataset = AMOS22Images2D(path_to_data=self.path_to_data, stage='train',
-                                                transforms=self.augmentations)
+                                                transforms=self.augmentations, channels=self.config.channels)
             self.val_dataset = AMOS22Images2D(path_to_data=self.path_to_data, stage='val',
-                                              transforms=self.augmentations)
+                                              transforms=self.augmentations, channels=self.config.channels)
 
         if stage == 'test' or stage is None:
             self.test_dataset = AMOS22Images2D(path_to_data=self.path_to_data, stage='test',
-                                               transforms=self.augmentations)
+                                               transforms=self.augmentations, channels=self.config.channels)
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_dataset,

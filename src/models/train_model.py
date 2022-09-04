@@ -33,9 +33,26 @@ def experiment_2():
     train_config = Config(batch_size=2, num_workers=6)
     datamodule_patches = CTDatasetPatches(config=train_config)
 
-    trainer = pl.Trainer(check_val_every_n_epoch=10, max_epochs=200, accelerator="gpu", log_every_n_steps=5)
+    trainer = pl.Trainer(check_val_every_n_epoch=10, max_epochs=80, accelerator="gpu", log_every_n_steps=5)
     trainer.fit(model=model, datamodule=datamodule_patches)
 
 
+def experiment_3():
+    """
+    Use channels to train
+    :return:
+    """
+    train_config = Config(batch_size=138, num_workers=6, channels=3)
+
+    base_model = smp.Unet('resnet34', encoder_weights='imagenet', classes=16 * train_config.channels,
+                          in_channels=train_config.channels)
+    model = ModelSegmentationCT(base_model=base_model, loss_function=smp.losses.DiceLoss(mode='multilabel'))
+
+    datamodule = CTDataset2D(config=train_config)
+
+    trainer = pl.Trainer(check_val_every_n_epoch=10, max_epochs=80, accelerator="gpu", log_every_n_steps=5)
+    trainer.fit(model=model, datamodule=datamodule)
+
+
 if __name__ == '__main__':
-    experiment_2()
+    experiment_3()
