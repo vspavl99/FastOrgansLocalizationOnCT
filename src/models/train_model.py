@@ -42,7 +42,7 @@ def experiment_3():
     Use channels to train
     :return:
     """
-    train_config = Config(batch_size=138, num_workers=6, channels=3)
+    train_config = Config(batch_size=98, num_workers=6, channels=5)
 
     base_model = smp.Unet('resnet34', encoder_weights='imagenet', classes=16 * train_config.channels,
                           in_channels=train_config.channels)
