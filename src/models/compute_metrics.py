@@ -30,6 +30,19 @@ def compute_metrics_patches():
     trainer.test(model=model, datamodule=CTDatasetPatches(config=test_config))
 
 
+def compute_metrics_channels_images():
+    test_config = Config(batch_size=138, num_workers=6, channels=3)
+
+    model = ModelSegmentationCT.load_from_checkpoint(
+        checkpoint_path="/home/vpavlishen/lightning_logs/version_54/checkpoints/epoch=79-step=12960.ckpt",
+        base_model=smp.Unet('resnet34', encoder_weights='imagenet', classes=16 * test_config.channels,
+                            in_channels=test_config.channels)
+    )
+
+    trainer = pl.Trainer(accelerator="gpu", log_every_n_steps=5)
+    trainer.test(model=model, datamodule=CTDataset2D(config=test_config))
+
+
 if __name__ == '__main__':
 
-    compute_metrics_patches()
+    compute_metrics_channels_images()
