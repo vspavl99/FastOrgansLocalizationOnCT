@@ -1,14 +1,18 @@
 import glob
-from typing import List, Tuple
+from typing import Tuple, List
 from pathlib import Path
 
-import numpy as np
 import torch
-from torch.utils.data import Dataset
+import numpy as np
+from torch.utils.data import Dataset as TorchDataset
 from torch.nn.functional import one_hot
+from monai.data import Dataset as MonaiDataset
+from monai.transforms import Compose, RandSpatialCropd, LoadImaged, Orientationd, Resized
+
+from src.config import Config
 
 
-class AMOS22Patches:
+class AMOS22:
     number_of_classes = 16  # 15 classes + background
     file_type = '*.nii.gz'
 
@@ -32,7 +36,7 @@ class AMOS22Patches:
         return data_paths
 
 
-class AMOS22Images2D(Dataset, AMOS22Patches):
+class AMOS22Images2D(TorchDataset, AMOS22):
     file_type = '*/*.npz'
 
     def __init__(self, path_to_data: str = '', stage: str = None, transforms=None, channels=1):
@@ -98,6 +102,48 @@ class AMOS22Images2D(Dataset, AMOS22Patches):
     def _decode_label(self, label: torch.Tensor) -> torch.Tensor:
         target = one_hot(label, num_classes=self.number_of_classes)
         return target
+
+
+class AMOS22Volumes(MonaiDataset, AMOS22):
+    file_type = '*.nii.gz'
+
+    def __init__(self, path_to_data: str = '', stage: str = None, config: Config = None):
+
+        data = self._get_data_paths(path_to_data=path_to_data, stage=stage)
+
+        transforms = Compose(
+            [
+                LoadImaged(keys=["image", "label"], ensure_channel_first=True),
+                Orientationd(keys=["image", "label"], axcodes='SLA'),
+                Resized(keys=["image", "label"], spatial_size=config.patch_shape, mode='nearest'),
+                RandSpatialCropd(keys=["image", "label"], roi_size=config.crop_shape, random_size=False)
+            ]
+        )
+
+        super().__init__(data=data, transform=transforms)
+
+    def _preprocess(self, volume, target):
+        volume = volume.permute(1, 0, 2, 3)
+        volume = volume / 2048
+
+        target = one_hot(target.squeeze().long(), num_classes=self.number_of_classes).permute(0, 3, 1, 2).float()
+
+        return volume, target
+
+    def __getitem__(self, index):
+        data = super().__getitem__(index)
+        volume, target = self._preprocess(volume=data['image'], target=data['label'])
+        return volume, target
+
+    def _get_data_paths(self, path_to_data: str, stage: str) -> List[dict]:
+        self.path_to_data = Path(path_to_data)
+        self.data_paths = self.get_data_paths(stage)
+
+        data = [
+            {"image": image_name, "label": label_name} for image_name, label_name in self.data_paths
+        ]
+
+        return data
 
 
 class CTORG:

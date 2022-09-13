@@ -3,8 +3,6 @@ import numpy as np
 from skimage import color
 import matplotlib.pyplot as plt
 
-from src.visualization.utils import COLOR_MAP
-
 
 def visualize_mask(raw_image: np.ndarray, mask: np.ndarray) -> np.ndarray:
     image = (raw_image.transpose((1, 2, 0)) * 255).astype(np.uint8)

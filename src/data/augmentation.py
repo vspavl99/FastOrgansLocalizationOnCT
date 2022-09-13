@@ -1,6 +1,7 @@
 from albumentations import Compose, Normalize, Resize
 from albumentations.pytorch.transforms import ToTensorV2
 
+import cv2
 from src.config import Config
 
 
@@ -23,7 +24,7 @@ class Augmentations:
         """
 
         list_transforms = [
-            Resize(always_apply=False, p=1.0, height=self.height, width=self.width),
+            Resize(always_apply=False, p=1.0, height=self.height, width=self.width, interpolation=cv2.INTER_NEAREST),
             Normalize(always_apply=True, mean=0, std=1, max_pixel_value=2048),
             ToTensorV2()
         ]

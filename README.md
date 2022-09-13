@@ -3,9 +3,24 @@ Fast organs localization on CT
 
 ### Task 1
 
-| iou_score | f1_score  | accuracy | recall |
-|:---------:|-----------|----------|--------|
-|   0.93    | 0.96      | 0.99     | 0.97   |
+|                     | UNET (exp1, 128x128)  | UNETR (exp1, 128) | UNETR (exp1, 256) |
+|:-------------------:|-----------------------|-------------------|-------------------|
+|       spleen        | 0.3669                | 0.5756            | 0.5483            |
+|    right kidney     | 0.5549                | 0.4809            | 0.5604            |
+|     left kidney     | 0.5578                | 0.4645            | 0.5203            |
+|     gallbladder     | 0.0070                | 0.2871            | 0.4026            |
+|      esophagus      | 0.4014                | 0.3094            | 0.3653            |
+|        liver        | 0.1428                | 0.6533            | 0.6937            |
+|       stomach       | 0.2902                | 0.3077            | 0.3506            |
+|        aorta        | 0.5905                | 0.5424            | 0.5712            |
+|      postcava       | 0.3920                | 0.3731            | 0.3929            |
+|      pancreas       | 0.2834                | 0.2700            | 0.3102            |
+| right adrenal gland | 0.1209                | 0.2605            | 0.2879            |
+| left adrenal gland  | 0.1773                | 0.2078            | 0.2230            |
+|      duodenum       | 0.2497                | 0.1841            | 0.2088            |
+|       bladder       | 0.2561                | 0.3902            | 0.4367            |
+|   prostate/uterus   | 0.3977                | 0.4087            | 0.4463            |
+
 
 ### Task 2
 | iou_score | f1_score | accuracy | recall |

@@ -4,7 +4,7 @@ import segmentation_models_pytorch as smp
 METRICS = {
     'iou_score': {
         'func': smp.metrics.iou_score,
-        'reduction': 'micro'
+        'reduction': 'macro'
     },
     'f1_score': {
         'func': smp.metrics.f1_score,
@@ -17,5 +17,5 @@ METRICS = {
     'recall': {
         'func': smp.metrics.recall,
         'reduction': 'micro-imagewise'
-    },
+    }
 }
