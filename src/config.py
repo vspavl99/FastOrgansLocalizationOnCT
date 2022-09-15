@@ -10,7 +10,7 @@ class Config:
     num_workers: int = 1
     number_of_classes: int = 16
 
-    channels: int = 1
+    channels: int = None
     patch_shape: tuple = (-1, 128, 128)
     crop_shape: tuple = (100, 128, 128)
     image_shape: tuple = (128, 128)
